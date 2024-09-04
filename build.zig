@@ -12,10 +12,6 @@ fn define_from_bool(val: bool) ?u1 {
 
 pub fn build(b: *Build) void {
     const optimize = b.standardOptimizeOption(.{});
-    const target = b.standardTargetOptions(.{});
-
-    const libusb = create_libusb(b, target, optimize);
-    b.installArtifact(libusb);
 
     const build_all = b.step("all", "build libusb for all targets");
     for (targets(b)) |t| {
@@ -194,10 +190,9 @@ const windows_src: []const []const u8 = &.{
     "libusb/os/windows_winusb.c",
 };
 
-pub fn targets(b: *Build) [17]std.Build.ResolvedTarget {
+pub fn targets(b: *Build) [16]std.Build.ResolvedTarget {
     return [_]std.Build.ResolvedTarget{
         // zig fmt: off
-        b.resolveTargetQuery(.{}),
         b.resolveTargetQuery(.{ .os_tag = .linux,   .cpu_arch = .x86_64,    .abi = .musl        }),
         b.resolveTargetQuery(.{ .os_tag = .linux,   .cpu_arch = .x86_64,    .abi = .gnu         }),
         b.resolveTargetQuery(.{ .os_tag = .linux,   .cpu_arch = .aarch64,   .abi = .musl        }),
