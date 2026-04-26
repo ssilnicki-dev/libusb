@@ -33,26 +33,21 @@ fn create_libusb(
     linkage: std.builtin.LinkMode,
     system_libudev: bool,
 ) *Build.Step.Compile {
-    const effective_target =
-        if (target.result.os.tag == .freebsd and target.result.abi == .gnu)
-            b.resolveTargetQuery(.{
-                .os_tag = .freebsd,
-                .cpu_arch = target.result.cpu.arch,
-            })
-        else
-            target;
+    if (target.result.os.tag == .freebsd and target.result.abi == .gnu) {
+        @panic("libusb: FreeBSD targets must not use the GNU ABI suffix. Use -target <arch>-freebsd (for example: x86_64-freebsd).");
+    }
 
     const is_posix =
-        effective_target.result.os.tag == .macos or
-        effective_target.result.os.tag == .linux or
-        effective_target.result.os.tag == .freebsd or
-        effective_target.result.os.tag == .openbsd;
+        target.result.os.tag == .macos or
+        target.result.os.tag == .linux or
+        target.result.os.tag == .freebsd or
+        target.result.os.tag == .openbsd;
 
     const lib = b.addLibrary(.{
         .name = "usb",
         .linkage = linkage,
         .root_module = b.createModule(.{
-            .target = effective_target,
+            .target = target,
             .optimize = optimize,
             .link_libc = true,
         }),
@@ -62,29 +57,29 @@ fn create_libusb(
     if (is_posix)
         lib.addCSourceFiles(.{ .files = posix_platform_src });
 
-    if (effective_target.result.os.tag == .macos) {
+    if (target.result.os.tag == .macos) {
         lib.addCSourceFiles(.{ .files = darwin_src });
         lib.linkFramework("CoreFoundation");
         lib.linkFramework("IOKit");
         lib.linkFramework("Security");
-    } else if (effective_target.result.os.tag == .linux) {
+    } else if (target.result.os.tag == .linux) {
         lib.addCSourceFiles(.{ .files = linux_src });
         if (system_libudev) {
             lib.addCSourceFiles(.{ .files = linux_udev_src });
             lib.linkSystemLibrary("udev");
         }
-    } else if (effective_target.result.os.tag == .windows) {
+    } else if (target.result.os.tag == .windows) {
         lib.addCSourceFiles(.{ .files = windows_src });
         lib.addCSourceFiles(.{ .files = windows_platform_src });
-    } else if (effective_target.result.os.tag == .netbsd) {
+    } else if (target.result.os.tag == .netbsd) {
         lib.addCSourceFiles(.{ .files = netbsd_src });
-    } else if (effective_target.result.os.tag == .freebsd) {
+    } else if (target.result.os.tag == .freebsd) {
         lib.addCSourceFiles(.{ .files = freebsd_src });
-    } else if (effective_target.result.os.tag == .openbsd) {
+    } else if (target.result.os.tag == .openbsd) {
         lib.addCSourceFiles(.{ .files = openbsd_src });
-    } else if (effective_target.result.os.tag == .haiku) {
+    } else if (target.result.os.tag == .haiku) {
         lib.addCSourceFiles(.{ .files = haiku_src });
-    } else if (effective_target.result.os.tag == .solaris) {
+    } else if (target.result.os.tag == .solaris) {
         lib.addCSourceFiles(.{ .files = sunos_src });
     } else unreachable;
 
@@ -92,11 +87,11 @@ fn create_libusb(
     lib.installHeader(b.path("libusb/libusb.h"), "libusb.h");
 
     // config header
-    if (effective_target.result.os.tag == .macos) {
+    if (target.result.os.tag == .macos) {
         lib.addIncludePath(b.path("Xcode"));
-    } else if (effective_target.result.abi == .msvc) {
+    } else if (target.result.abi == .msvc) {
         lib.addIncludePath(b.path("msvc"));
-    } else if (effective_target.result.abi == .android) {
+    } else if (target.result.abi == .android) {
         lib.addIncludePath(b.path("android"));
     } else {
         const config_h = b.addConfigHeader(.{ .style = .{
@@ -106,7 +101,7 @@ fn create_libusb(
             .ENABLE_DEBUG_LOGGING = define_from_bool(optimize == .Debug),
             .ENABLE_LOGGING = 1,
             .HAVE_ASM_TYPES_H = null,
-            .HAVE_CLOCK_GETTIME = define_from_bool(!(effective_target.result.os.tag == .windows)),
+            .HAVE_CLOCK_GETTIME = define_from_bool(!(target.result.os.tag == .windows)),
             .HAVE_DECL_EFD_CLOEXEC = null,
             .HAVE_DECL_EFD_NONBLOCK = null,
             .HAVE_DECL_TFD_CLOEXEC = null,
@@ -114,7 +109,7 @@ fn create_libusb(
             .HAVE_DLFCN_H = null,
             .HAVE_EVENTFD = null,
             .HAVE_INTTYPES_H = null,
-            .HAVE_IOKIT_USB_IOUSBHOSTFAMILYDEFINITIONS_H = define_from_bool(effective_target.result.os.tag == .macos),
+            .HAVE_IOKIT_USB_IOUSBHOSTFAMILYDEFINITIONS_H = define_from_bool(target.result.os.tag == .macos),
             .HAVE_LIBUDEV = define_from_bool(system_libudev),
             .HAVE_NFDS_T = null,
             .HAVE_PIPE2 = null,
@@ -142,7 +137,7 @@ fn create_libusb(
             .PACKAGE_URL = "http://libusb.info",
             .PACKAGE_VERSION = "1.0.26",
             .PLATFORM_POSIX = define_from_bool(is_posix),
-            .PLATFORM_WINDOWS = define_from_bool(effective_target.result.os.tag == .windows),
+            .PLATFORM_WINDOWS = define_from_bool(target.result.os.tag == .windows),
             .STDC_HEADERS = 1,
             .UMOCKDEV_HOTPLUG = null,
             .USE_SYSTEM_LOGGING_FACILITY = null,
