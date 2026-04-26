@@ -14,6 +14,7 @@
 #include <sys/types.h>
 
 #include <dev/usb/usb.h>
+#include <dev/usb/usbdi.h>
 #include <dev/usb/usb_ioctl.h>
 
 #include <errno.h>
@@ -384,7 +385,7 @@ sync_control_transfer(struct usbi_transfer *itransfer)
 	req.ucr_data = transfer->buffer + LIBUSB_CONTROL_SETUP_SIZE;
 
 	if ((transfer->flags & LIBUSB_TRANSFER_SHORT_NOT_OK) == 0)
-		req.ucr_flags = USBD_SHORT_XFER_OK;
+		req.ucr_flags = USB_SHORT_XFER_OK;
 
 	timeout = transfer->timeout;
 	if (setup->bmRequestType & LIBUSB_ENDPOINT_IN) {
