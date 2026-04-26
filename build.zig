@@ -70,7 +70,7 @@ fn create_libusb(
     } else if (target.result.os.tag == .netbsd) {
         lib.addCSourceFiles(.{ .files = netbsd_src });
     } else if (target.result.os.tag == .freebsd) {
-        lib.addCSourceFiles(.{ .files = null_src });
+        lib.addCSourceFiles(.{ .files = freebsd_src });
     } else if (target.result.os.tag == .openbsd) {
         lib.addCSourceFiles(.{ .files = openbsd_src });
     } else if (target.result.os.tag == .haiku) {
@@ -187,6 +187,10 @@ const linux_udev_src: []const []const u8 = &.{
 
 const netbsd_src: []const []const u8 = &.{
     "libusb/os/netbsd_usb.c",
+};
+
+const freebsd_src: []const []const u8 = &.{
+    "libusb/os/freebsd_usb.c",
 };
 
 const null_src: []const []const u8 = &.{
