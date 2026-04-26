@@ -107,6 +107,11 @@ case $host in
 	backend=openbsd
 	platform=posix
 	;;
+*-freebsd*)
+	AC_MSG_RESULT([FreeBSD])
+	backend=freebsd
+	platform=posix
+	;;
 *-solaris*)
 	AC_MSG_RESULT([SunOS])
 	backend=sunos
@@ -372,6 +377,7 @@ AM_CONDITIONAL([OS_DARWIN], [test "x$backend" = xdarwin])
 AM_CONDITIONAL([OS_HAIKU], [test "x$backend" = xhaiku])
 AM_CONDITIONAL([OS_LINUX], [test "x$backend" = xlinux])
 AM_CONDITIONAL([OS_NETBSD], [test "x$backend" = xnetbsd])
+AM_CONDITIONAL([OS_FREEBSD], [test "x$backend" = xfreebsd])
 AM_CONDITIONAL([OS_NULL], [test "x$backend" = xnull])
 AM_CONDITIONAL([OS_OPENBSD], [test "x$backend" = xopenbsd])
 AM_CONDITIONAL([OS_SUNOS], [test "x$backend" = xsunos])
