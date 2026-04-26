@@ -107,6 +107,11 @@ case $host in
 	backend=openbsd
 	platform=posix
 	;;
+*-freebsd*)
+	AC_MSG_RESULT([FreeBSD])
+	backend=openbsd
+	platform=posix
+	;;
 *-solaris*)
 	AC_MSG_RESULT([SunOS])
 	backend=sunos

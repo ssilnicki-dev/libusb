@@ -36,6 +36,7 @@ fn create_libusb(
     const is_posix =
         target.result.os.tag == .macos or
         target.result.os.tag == .linux or
+        target.result.os.tag == .freebsd or
         target.result.os.tag == .openbsd;
 
     const lib = b.addLibrary(.{
@@ -68,6 +69,8 @@ fn create_libusb(
         lib.addCSourceFiles(.{ .files = windows_platform_src });
     } else if (target.result.os.tag == .netbsd) {
         lib.addCSourceFiles(.{ .files = netbsd_src });
+    } else if (target.result.os.tag == .freebsd) {
+        lib.addCSourceFiles(.{ .files = openbsd_src });
     } else if (target.result.os.tag == .openbsd) {
         lib.addCSourceFiles(.{ .files = openbsd_src });
     } else if (target.result.os.tag == .haiku) {
@@ -207,7 +210,7 @@ const windows_src: []const []const u8 = &.{
     "libusb/os/windows_winusb.c",
 };
 
-pub fn targets(b: *Build) [17]std.Build.ResolvedTarget {
+pub fn targets(b: *Build) [18]std.Build.ResolvedTarget {
     return [_]std.Build.ResolvedTarget{
         // zig fmt: off
         b.resolveTargetQuery(.{}),
@@ -224,6 +227,7 @@ pub fn targets(b: *Build) [17]std.Build.ResolvedTarget {
         b.resolveTargetQuery(.{ .os_tag = .windows, .cpu_arch = .aarch64                        }),
         b.resolveTargetQuery(.{ .os_tag = .windows, .cpu_arch = .x86_64                         }),
         b.resolveTargetQuery(.{ .os_tag = .netbsd,  .cpu_arch = .x86_64                         }),
+        b.resolveTargetQuery(.{ .os_tag = .freebsd, .cpu_arch = .x86_64                         }),
         b.resolveTargetQuery(.{ .os_tag = .openbsd, .cpu_arch = .x86_64                         }),
         b.resolveTargetQuery(.{ .os_tag = .haiku,   .cpu_arch = .x86_64                         }),
         b.resolveTargetQuery(.{ .os_tag = .solaris, .cpu_arch = .x86_64                         }),
