@@ -70,7 +70,7 @@ fn create_libusb(
     } else if (target.result.os.tag == .netbsd) {
         lib.addCSourceFiles(.{ .files = netbsd_src });
     } else if (target.result.os.tag == .freebsd) {
-        lib.addCSourceFiles(.{ .files = openbsd_src });
+        lib.addCSourceFiles(.{ .files = null_src });
     } else if (target.result.os.tag == .openbsd) {
         lib.addCSourceFiles(.{ .files = openbsd_src });
     } else if (target.result.os.tag == .haiku) {

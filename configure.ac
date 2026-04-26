@@ -109,7 +109,8 @@ case $host in
 	;;
 *-freebsd*)
 	AC_MSG_RESULT([FreeBSD])
-	backend=openbsd
+	AC_MSG_WARN([FreeBSD backend is not implemented yet; using null backend.])
+	backend=null
 	platform=posix
 	;;
 *-solaris*)
