@@ -141,6 +141,7 @@ fn create_libusb(
             .@"inline" = null,
         });
         lib.root_module.addConfigHeader(config_h);
+        lib.installHeader(config_h.getOutputFile(), b.path("config.h").src_path.sub_path);
     }
 
     return lib;
