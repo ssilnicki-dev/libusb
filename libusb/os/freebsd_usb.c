@@ -19,8 +19,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <dirent.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -97,131 +95,128 @@ freebsd_get_device_list(struct libusb_context *ctx, struct discovered_devs **dis
 	struct libusb_device *dev;
 	struct discovered_devs *ddd;
 	struct device_priv *dpriv;
-	struct dirent *de;
-	char dirbuf[4096];
+	const char *src;
+	uint8_t *ptr;
+	uint32_t nparsed;
+	uint8_t dirbuf[256];
 	char devnode[32];
 	unsigned long session_id;
 	unsigned int bus, addr;
-	size_t off;
-	int fd, dfd, rc;
-	ssize_t reclen;
-	bool progress;
+	int fd, dfd;
 
 	fd = open(USBCTL, O_RDWR);
 	if (fd < 0)
 		return errno_to_libusb(errno);
 
 	memset(&urd, 0, sizeof(urd));
-	urd.urd_data = dirbuf;
-	urd.urd_maxlen = sizeof(dirbuf);
-
+	ptr = NULL;
+	nparsed = 0;
 	for (;;) {
-		rc = ioctl(fd, USB_READ_DIR, &urd);
-		if (rc < 0) {
-			if (errno == ENOENT)
+		if (ptr == NULL) {
+			urd.urd_startentry += nparsed;
+			urd.urd_data = dirbuf;
+			urd.urd_maxlen = sizeof(dirbuf);
+			nparsed = 0;
+			if (ioctl(fd, USB_READ_DIR, &urd) < 0)
 				break;
-			close(fd);
-			return errno_to_libusb(errno);
+			ptr = dirbuf;
 		}
 
-		off = 0;
-		progress = false;
-		while (off + sizeof(struct dirent) <= sizeof(dirbuf)) {
-			de = (struct dirent *)(void *)(dirbuf + off);
-			reclen = de->d_reclen;
-			if (reclen <= 0)
-				break;
-			off += (size_t)reclen;
-			progress = true;
-
-			if (strncmp(de->d_name, USB_GENERIC_NAME, sizeof(USB_GENERIC_NAME) - 1) != 0)
-				continue;
-
-			if (sscanf(de->d_name, USB_GENERIC_NAME "%u.%u", &bus, &addr) != 2)
-				continue;
-
-			snprintf(devnode, sizeof(devnode), DEVPATH "%s", de->d_name);
-			dfd = open(devnode, O_RDWR);
-			if (dfd < 0)
-				continue;
-
-			memset(&di, 0, sizeof(di));
-			if (ioctl(dfd, USB_GET_DEVICEINFO, &di) < 0) {
-				close(dfd);
+		if (ptr[0] == 0) {
+			if (nparsed) {
+				ptr = NULL;
 				continue;
 			}
+			break;
+		}
+
+		src = (const char *)(void *)(ptr + 1);
+		ptr += ptr[0];
+		nparsed++;
+
+		if ((ptr < dirbuf) || (ptr > (dirbuf + sizeof(dirbuf))))
+			break;
+
+		if (strncmp(src, USB_GENERIC_NAME, sizeof(USB_GENERIC_NAME) - 1) != 0)
+			continue;
+
+		if (sscanf(src, USB_GENERIC_NAME "%u.%u", &bus, &addr) != 2)
+			continue;
+
+		snprintf(devnode, sizeof(devnode), DEVPATH "%s", src);
+		dfd = open(devnode, O_RDWR);
+		if (dfd < 0)
+			continue;
+
+		memset(&di, 0, sizeof(di));
+		if (ioctl(dfd, USB_GET_DEVICEINFO, &di) < 0) {
 			close(dfd);
+			continue;
+		}
+		close(dfd);
 
-			if (di.udi_addr == 0)
-				continue;
+		if (di.udi_addr == 0)
+			continue;
 
-			session_id = (di.udi_bus << 8) | di.udi_addr;
-			dev = usbi_get_device_by_session_id(ctx, session_id);
+		session_id = (di.udi_bus << 8) | di.udi_addr;
+		dev = usbi_get_device_by_session_id(ctx, session_id);
+		if (dev == NULL) {
+			dev = usbi_alloc_device(ctx, session_id);
 			if (dev == NULL) {
-				dev = usbi_alloc_device(ctx, session_id);
-				if (dev == NULL) {
-					close(fd);
-					return LIBUSB_ERROR_NO_MEM;
-				}
-
-				dev->bus_number = di.udi_bus;
-				dev->device_address = di.udi_addr;
-				dev->speed = di.udi_speed;
-				dev->port_number = di.udi_hubport;
-
-				dpriv = usbi_get_device_priv(dev);
-				dpriv->fd = -1;
-				dpriv->active_config_index = di.udi_config_index;
-
-				dpriv->devname = strdup(de->d_name);
-				if (dpriv->devname == NULL) {
-					libusb_unref_device(dev);
-					close(fd);
-					return LIBUSB_ERROR_NO_MEM;
-				}
-
-				snprintf(devnode, sizeof(devnode), DEVPATH "%s", dpriv->devname);
-				dfd = open(devnode, O_RDWR);
-				if (dfd < 0) {
-					libusb_unref_device(dev);
-					continue;
-				}
-
-				if (ioctl(dfd, USB_GET_DEVICE_DESC, &dev->device_descriptor) < 0) {
-					close(dfd);
-					libusb_unref_device(dev);
-					continue;
-				}
-				usbi_localize_device_descriptor(&dev->device_descriptor);
-				close(dfd);
-
-				if (cache_config_descriptor(dev, di.udi_config_index) != LIBUSB_SUCCESS) {
-					libusb_unref_device(dev);
-					continue;
-				}
-
-				if (usbi_sanitize_device(dev)) {
-					libusb_unref_device(dev);
-					continue;
-				}
+				close(fd);
+				return LIBUSB_ERROR_NO_MEM;
 			}
 
-			ddd = discovered_devs_append(*discdevs, dev);
-			if (ddd == NULL) {
+			dev->bus_number = di.udi_bus;
+			dev->device_address = di.udi_addr;
+			dev->speed = di.udi_speed;
+			dev->port_number = di.udi_hubport;
+
+			dpriv = usbi_get_device_priv(dev);
+			dpriv->fd = -1;
+			dpriv->active_config_index = di.udi_config_index;
+
+			dpriv->devname = strdup(src);
+			if (dpriv->devname == NULL) {
 				libusb_unref_device(dev);
 				close(fd);
 				return LIBUSB_ERROR_NO_MEM;
 			}
-			libusb_unref_device(dev);
-			*discdevs = ddd;
+
+			snprintf(devnode, sizeof(devnode), DEVPATH "%s", dpriv->devname);
+			dfd = open(devnode, O_RDWR);
+			if (dfd < 0) {
+				libusb_unref_device(dev);
+				continue;
+			}
+
+			if (ioctl(dfd, USB_GET_DEVICE_DESC, &dev->device_descriptor) < 0) {
+				close(dfd);
+				libusb_unref_device(dev);
+				continue;
+			}
+			usbi_localize_device_descriptor(&dev->device_descriptor);
+			close(dfd);
+
+			if (cache_config_descriptor(dev, di.udi_config_index) != LIBUSB_SUCCESS) {
+				libusb_unref_device(dev);
+				continue;
+			}
+
+			if (usbi_sanitize_device(dev)) {
+				libusb_unref_device(dev);
+				continue;
+			}
 		}
 
-		if (!progress)
-			break;
-
-		urd.urd_startentry++;
-		if (off < sizeof(dirbuf))
-			break;
+		ddd = discovered_devs_append(*discdevs, dev);
+		if (ddd == NULL) {
+			libusb_unref_device(dev);
+			close(fd);
+			return LIBUSB_ERROR_NO_MEM;
+		}
+		libusb_unref_device(dev);
+		*discdevs = ddd;
 	}
 
 	close(fd);
