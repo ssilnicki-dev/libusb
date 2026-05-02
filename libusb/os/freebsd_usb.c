@@ -198,9 +198,17 @@ freebsd_get_device_list(struct libusb_context *ctx, struct discovered_devs **dis
 			usbi_localize_device_descriptor(&dev->device_descriptor);
 			close(dfd);
 
-			if (cache_config_descriptor(dev, di.udi_config_index) != LIBUSB_SUCCESS) {
-				libusb_unref_device(dev);
-				continue;
+			/*
+			 * Devices can be unconfigured (USB_UNCONFIG_NO /
+			 * USB_UNCONFIG_INDEX). In that state, there is no active
+			 * config descriptor to cache yet.
+			 */
+			if (di.udi_config_index != USB_UNCONFIG_INDEX &&
+			    di.udi_config_no != USB_UNCONFIG_NO) {
+				if (cache_config_descriptor(dev, di.udi_config_index) != LIBUSB_SUCCESS) {
+					libusb_unref_device(dev);
+					continue;
+				}
 			}
 
 			if (usbi_sanitize_device(dev)) {
